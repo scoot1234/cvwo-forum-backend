@@ -27,13 +27,11 @@ func (c *AuthController) RegisterRoutes(r chi.Router) {
 	r.Post("/auth/login", c.Login)
 }
 
-type signUpRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
-	var req signUpRequest
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid json body")
 		return
@@ -50,17 +48,6 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Password) < 8 {
 		utils.WriteError(w, http.StatusBadRequest, "password too short (min 8)")
-		return
-	}
-
-	var existing models.User
-	err := c.DB.Where("username = ?", req.Username).First(&existing).Error
-	if err == nil {
-		utils.WriteError(w, http.StatusConflict, "username already taken")
-		return
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		utils.WriteError(w, http.StatusInternalServerError, "failed to check username")
 		return
 	}
 
@@ -86,16 +73,21 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, user)
-}
-
-type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	utils.WriteJSON(w, http.StatusCreated, map[string]any{
+		"message": "signup ok",
+		"user": map[string]any{
+			"id":       user.ID,
+			"username": user.Username,
+			"role":     user.Role,
+		},
+	})
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid json body")
 		return
@@ -108,8 +100,7 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user models.User
-	err := c.DB.Where("username = ?", req.Username).First(&user).Error
-	if err != nil {
+	if err := c.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.WriteError(w, http.StatusUnauthorized, "invalid credentials")
 			return

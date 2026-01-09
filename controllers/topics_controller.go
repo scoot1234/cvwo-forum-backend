@@ -32,13 +32,20 @@ func (c *TopicsController) RegisterRoutes(r chi.Router) {
 }
 
 func (c *TopicsController) GetTopics(w http.ResponseWriter, r *http.Request) {
-	var topics []models.Topic
-	if err := c.DB.
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	dbq := c.DB.
 		Preload("CreatedByUser", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "username")
 		}).
-		Order("created_at DESC").
-		Find(&topics).Error; err != nil {
+		Order("created_at DESC")
+
+	if q != "" {
+		like := "%" + q + "%"
+		dbq = dbq.Where("title ILIKE ?", like)
+	}
+
+	var topics []models.Topic
+	if err := dbq.Find(&topics).Error; err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "failed to fetch topics")
 		return
 	}
@@ -114,14 +121,7 @@ func (c *TopicsController) CreateTopic(w http.ResponseWriter, r *http.Request) {
 		topic.CreatedByUser = &author
 	}
 
-	var created models.Topic
-	_ = c.DB.
-		Preload("CreatedByUser", func(db *gorm.DB) *gorm.DB { return db.Select("id", "username") }).
-		First(&created, topic.ID).Error
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(types.ToTopicResponse(created))
+	utils.WriteJSON(w, http.StatusCreated, types.ToTopicResponse(topic))
 }
 
 func (c *TopicsController) UpdateTopic(w http.ResponseWriter, r *http.Request) {

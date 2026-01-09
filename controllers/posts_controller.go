@@ -47,14 +47,22 @@ func (c *PostsController) GetPostsByTopic(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var posts []models.Post
-	if err := c.DB.
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+
+	dbq := c.DB.
 		Where("topic_id = ?", topicID).
 		Preload("User", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "username")
 		}).
-		Order("created_at DESC").
-		Find(&posts).Error; err != nil {
+		Order("created_at DESC")
+
+	if q != "" {
+		like := "%" + q + "%"
+		dbq = dbq.Where("(title ILIKE ? OR body ILIKE ?)", like, like)
+	}
+
+	var posts []models.Post
+	if err := dbq.Find(&posts).Error; err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, "failed to fetch posts")
 		return
 	}

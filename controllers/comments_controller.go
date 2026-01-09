@@ -63,7 +63,6 @@ func (c *CommentsController) GetCommentsByPost(w http.ResponseWriter, r *http.Re
 	for _, cm := range comments {
 		out = append(out, types.ToCommentResponse(cm))
 	}
-
 	utils.WriteJSON(w, http.StatusOK, out)
 }
 
@@ -85,10 +84,10 @@ func (c *CommentsController) CreateComment(w http.ResponseWriter, r *http.Reques
 	}
 
 	type createCommentRequest struct {
-		UserID          uint   `json:"userId"`
-		Body            string `json:"body"`
-		ParentCommentID *uint  `json:"parentCommentId,omitempty"`
+		UserID uint   `json:"userId"`
+		Body   string `json:"body"`
 	}
+
 	var req createCommentRequest
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid json body")
@@ -116,27 +115,10 @@ func (c *CommentsController) CreateComment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if req.ParentCommentID != nil {
-		var parent models.Comment
-		if err := c.DB.First(&parent, *req.ParentCommentID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				utils.WriteError(w, http.StatusBadRequest, "parent comment not found")
-				return
-			}
-			utils.WriteError(w, http.StatusInternalServerError, "db error checking parent comment")
-			return
-		}
-		if parent.PostID != postID {
-			utils.WriteError(w, http.StatusBadRequest, "parentCommentId does not belong to this post")
-			return
-		}
-	}
-
 	comment := models.Comment{
-		PostID:          postID,
-		UserID:          req.UserID,
-		Body:            req.Body,
-		ParentCommentID: req.ParentCommentID,
+		PostID: postID,
+		UserID: req.UserID,
+		Body:   req.Body,
 	}
 
 	if err := c.DB.Create(&comment).Error; err != nil {
@@ -144,9 +126,7 @@ func (c *CommentsController) CreateComment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// attach user for response mapper
 	comment.User = user
-
 	utils.WriteJSON(w, http.StatusCreated, types.ToCommentResponse(comment))
 }
 
@@ -161,11 +141,13 @@ func (c *CommentsController) UpdateComment(w http.ResponseWriter, r *http.Reques
 		UserID uint    `json:"userId"`
 		Body   *string `json:"body,omitempty"`
 	}
+
 	var req updateCommentRequest
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
+
 	if req.UserID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, "userId is required")
 		return
@@ -208,7 +190,6 @@ func (c *CommentsController) UpdateComment(w http.ResponseWriter, r *http.Reques
 	}
 
 	now := time.Now()
-
 	if err := c.DB.Model(&comment).Updates(map[string]any{
 		"body":      body,
 		"edited_at": &now,
@@ -238,11 +219,13 @@ func (c *CommentsController) DeleteComment(w http.ResponseWriter, r *http.Reques
 	type deleteCommentRequest struct {
 		UserID uint `json:"userId"`
 	}
+
 	var req deleteCommentRequest
 	if err := utils.DecodeJSON(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
+
 	if req.UserID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, "userId is required")
 		return
