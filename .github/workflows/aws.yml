@@ -47,8 +47,8 @@ jobs:
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
           aws_secret_key: ${{ secrets.AWS_BACKEND_SECRET }}
-          application_name: "REPLACE_WITH_YOUR_EB_APPLICATION_NAME"
-          environment_name: "REPLACE_WITH_YOUR_EB_ENVIRONMENT_NAME"
+          application_name: "CVWO_BACKEND"
+          environment_name: "cvwobackend"
           region: "ap-southeast-1"
           version_label: "${{ github.sha }}"
           deployment_package: "deploy.zip"
