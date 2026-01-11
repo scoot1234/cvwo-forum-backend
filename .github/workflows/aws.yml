@@ -1,0 +1,46 @@
+name: Deploy Backend to Elastic Beanstalk
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build Linux binary named application
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o application ./...
+
+      # Create EB bundle: include the binary + optional EB config files if you have them
+      - name: Create deployment bundle
+        run: |
+          zip -r deploy.zip application .ebextensions Procfile 2>/dev/null || true
+          # If you don't have .ebextensions/Procfile, it's fine; the zip still contains the binary.
+          if ! unzip -l deploy.zip | grep -q "application"; then
+            echo "ERROR: application binary not found in deploy.zip"
+            exit 1
+          fi
+
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v22
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_BACKEND_SECRET }}
+          application_name: "CVWO_BACKEND"
+          environment_name: "cvwobackend"
+          region: "ap-southeast-1"
+          version_label: "${{ github.sha }}"
+          deployment_package: "deploy.zip"
