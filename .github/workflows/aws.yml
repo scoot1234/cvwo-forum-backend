@@ -15,32 +15,42 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
+          # Match your local Go version if possible
           go-version: "1.22"
 
-      - name: Test
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
         run: go test ./...
 
-      - name: Build Linux binary named application
+      # IMPORTANT:
+      # Build ONLY the root main package (.) into a single binary.
+      # ./... would build multiple packages and fails with -o <single-file>.
+      - name: Build Linux binary (Elastic Beanstalk)
         run: |
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o application ./...
+          mkdir -p bin
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/application .
 
-      # Create EB bundle: include the binary + optional EB config files if you have them
       - name: Create deployment bundle
         run: |
-          zip -r deploy.zip application .ebextensions Procfile 2>/dev/null || true
-          # If you don't have .ebextensions/Procfile, it's fine; the zip still contains the binary.
-          if ! unzip -l deploy.zip | grep -q "application"; then
-            echo "ERROR: application binary not found in deploy.zip"
-            exit 1
-          fi
+          rm -f deploy.zip
+          # Bundle binary + optional EB config files if they exist
+          zip -r deploy.zip bin .ebextensions Procfile 2>/dev/null || zip -r deploy.zip bin
+          echo "=== deploy.zip contents ==="
+          unzip -l deploy.zip
+          # Fail fast if binary isn't present
+          unzip -l deploy.zip | grep -q "bin/application" || (echo "ERROR: bin/application not found in deploy.zip" && exit 1)
 
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v22
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
           aws_secret_key: ${{ secrets.AWS_BACKEND_SECRET }}
-          application_name: "CVWO_BACKEND"
-          environment_name: "cvwobackend"
+          application_name: "REPLACE_WITH_YOUR_EB_APPLICATION_NAME"
+          environment_name: "REPLACE_WITH_YOUR_EB_ENVIRONMENT_NAME"
           region: "ap-southeast-1"
           version_label: "${{ github.sha }}"
           deployment_package: "deploy.zip"
+          wait_for_deployment: true
+          wait_for_environment_recovery: true
