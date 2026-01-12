@@ -52,13 +52,16 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true, 
-		MaxAge:           300, 
+	  AllowedOrigins: []string{
+	    "https://cvwo-forum-frontend-xyb2.onrender.com",
+	    "http://localhost:5173",
+	  },
+	  AllowedMethods: []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+	  AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+	  AllowCredentials: false,
+	  MaxAge: 300,
 	}))
 
 	authController := controllers.NewAuthController(gdb)
